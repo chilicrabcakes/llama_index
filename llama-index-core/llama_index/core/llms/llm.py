@@ -56,7 +56,6 @@ from llama_index.core.instrumentation.events.llm import (
 import llama_index.core.instrumentation as instrument
 from llama_index.core.base.llms.types import (
     ChatMessage,
-    ChatResponse,
 )
 
 dispatcher = instrument.get_dispatcher(__name__)
@@ -287,6 +286,7 @@ class LLM(BaseLLM):
 
     # -- Structured outputs --
 
+    @dispatcher.span
     def structured_predict(
         self,
         output_cls: BaseModel,
@@ -332,6 +332,7 @@ class LLM(BaseLLM):
 
         return program(**prompt_args)
 
+    @dispatcher.span
     async def astructured_predict(
         self,
         output_cls: BaseModel,
@@ -419,6 +420,7 @@ class LLM(BaseLLM):
         dispatcher.event(LLMPredictEndEvent())
         return self._parse_output(output)
 
+    @dispatcher.span
     def stream(
         self,
         prompt: BasePromptTemplate,
@@ -501,6 +503,7 @@ class LLM(BaseLLM):
         dispatcher.event(LLMPredictEndEvent())
         return self._parse_output(output)
 
+    @dispatcher.span
     async def astream(
         self,
         prompt: BasePromptTemplate,
@@ -545,43 +548,7 @@ class LLM(BaseLLM):
 
         return stream_tokens
 
-    # -- Tool Calling --
-
-    def chat_with_tools(
-        self,
-        tools: List["BaseTool"],
-        user_msg: Optional[Union[str, ChatMessage]] = None,
-        chat_history: Optional[List[ChatMessage]] = None,
-        verbose: bool = False,
-        allow_parallel_tool_calls: bool = False,
-        **kwargs: Any,
-    ) -> ChatResponse:
-        """Predict and call the tool."""
-        raise NotImplementedError("predict_tool is not supported by default.")
-
-    async def achat_with_tools(
-        self,
-        tools: List["BaseTool"],
-        user_msg: Optional[Union[str, ChatMessage]] = None,
-        chat_history: Optional[List[ChatMessage]] = None,
-        verbose: bool = False,
-        allow_parallel_tool_calls: bool = False,
-        **kwargs: Any,
-    ) -> ChatResponse:
-        """Predict and call the tool."""
-        raise NotImplementedError("predict_tool is not supported by default.")
-
-    def _get_tool_calls_from_response(
-        self,
-        response: "AgentChatResponse",
-        error_on_no_tool_call: bool = True,
-        **kwargs: Any,
-    ) -> List[ToolSelection]:
-        """Predict and call the tool."""
-        raise NotImplementedError(
-            "_get_tool_calls_from_response is not supported by default."
-        )
-
+    @dispatcher.span
     def predict_and_call(
         self,
         tools: List["BaseTool"],
@@ -590,7 +557,12 @@ class LLM(BaseLLM):
         verbose: bool = False,
         **kwargs: Any,
     ) -> "AgentChatResponse":
-        """Predict and call the tool."""
+        """Predict and call the tool.
+
+        By default uses a ReAct agent to do tool calling (through text prompting),
+        but function calling LLMs will implement this differently.
+
+        """
         from llama_index.core.agent.react import ReActAgentWorker
         from llama_index.core.agent.types import Task
         from llama_index.core.memory import ChatMemoryBuffer
@@ -628,6 +600,7 @@ class LLM(BaseLLM):
 
         return output
 
+    @dispatcher.span
     async def apredict_and_call(
         self,
         tools: List["BaseTool"],
